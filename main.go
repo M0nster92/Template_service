@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/mohamedattahri/mail"
 	log "github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -240,25 +241,43 @@ func HandleGetTemplatesByFilter(w http.ResponseWriter, r *http.Request) {
 
 func HandleSendEmail(w http.ResponseWriter, r *http.Request) {
 	CORSHeaders(w, r)
-
-	var lead Lead
 	var response Response
 	var success bool
 	Sender := mux.Vars(r)["sender"]
 	TemplateID := mux.Vars(r)["template_id"]
 
-	reqBody, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		log.Errorf("Please provide valid data to sent Email, %s", r)
-		response.Error = "Invalid update body"
-	}
-	json.Unmarshal(reqBody, &lead)
 	//log.Infof("Lead object for sending Email %v", lead)
-	success, err = sendEmail(lead, Sender, TemplateID)
+	success, _ = sendEmail(Sender, TemplateID)
 	if success == true {
 		response.Status = "ok"
-		response.Data = lead
 	}
 
 	json.NewEncoder(w).Encode(response)
+}
+
+func sendEmail(sender string, id string) (success bool, err error) {
+	template := templatemail.GetTemplate(CRMDB.Collection("emailTemplates"), id, "crm")
+	recipients := []mail.Address{
+		mail.Address{
+			Name:    "Customer",
+			Address: sender,
+		},
+	}
+
+	Sender := mail.Address{
+		Name:    "telmax CRM",
+		Address: sender,
+	}
+
+	//log.Infof("Using HTML template %v - code is - \n%v", template.Description, template.Text)
+	message := NewTemplateMail(SMTP, Sender, template.Subject, recipients)
+	err = message.AddHtml(template.Text, "Hello")
+	if err != nil {
+		log.Errorf("Problem generating HTML part %v", err)
+	} else {
+		message.Send()
+		success = true
+	}
+
+	return
 }

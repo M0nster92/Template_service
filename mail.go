@@ -46,12 +46,16 @@ func (obj *TemplateMail) AddHtml(tpl string, data interface{}) error {
 		return err
 	}
 
+	//	tee := io.TeeReader(&buf, &buf2)
+
 	err = obj.parts.AddText("text/html", &buf)
 	if err != nil {
 		log.Error(err)
 	} else {
 		obj.hashtml = true
 	}
+
+	//obj.HTML = buf.String()
 
 	return err
 }
